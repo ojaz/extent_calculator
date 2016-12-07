@@ -4,7 +4,7 @@ Will output the extent as upper left and lower right coordinates, and the
 SRS code for the image projection.
 
 Author: ojaz
-Updated: 11/30/16
+Updated: 12/7/16
 
 ### Requirements
     * gdal >= 1.10
@@ -15,7 +15,6 @@ Updated: 11/30/16
 '''
 
 from argparse import ArgumentParser
-
 from osgeo import gdal, osr
 
 
@@ -23,10 +22,12 @@ def get_extent(path):
     gdal.UseExceptions()                  # force gdal exceptions
     gdal.PushErrorHandler(error_handler)  # use custom gdal error handling
 
+    # open file with gdal
     try:
         geos = gdal.Open(path)
     except RuntimeError:
-        exit(-1)
+        print "File not found {}!".format(path)
+        return
 
     # calculate imagery extent
     ulx, xres, _, uly, _, yres = geos.GetGeoTransform()
@@ -41,14 +42,15 @@ def get_extent(path):
 
 
 def error_handler(err_class, err_num, err_msg):
+    # clean default error messages
     err_msg = err_msg.replace('\n', ' ')
 
-    # ignore warnings, die on failure, print on debug
+    # ignore warnings, return on failure, print on debug
     if err_class == gdal.CE_Warning or err_class == gdal.CE_None:
         pass
     elif err_class == gdal.CE_Fatal or err_class == gdal.CE_Failure:
         print '[{} ({})]: {}\n'.format(err_class, err_num, err_msg)
-        exit(-1)
+        return
     else:
         print err_msg
 
