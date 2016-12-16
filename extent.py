@@ -4,7 +4,7 @@ Will output the extent as upper left and lower right coordinates, and the
 SRS code for the image projection.
 
 Author: ojaz
-Updated: 12/7/16
+Updated: 12/16/16
 
 ### Requirements
     * gdal >= 1.10
@@ -38,21 +38,18 @@ def get_extent(path):
     proj = geos.GetProjection()
     srs = osr.SpatialReference(wkt=proj).GetAttrValue('geogcs')
 
-    return {'SRS': srs, 'UL': (ulx, uly), 'LR': (lrx, lry)}
+    return [srs, (ulx, uly), (lrx, lry)]
 
 
 def error_handler(err_class, err_num, err_msg):
     # clean default error messages
     err_msg = err_msg.replace('\n', ' ')
 
-    # ignore warnings, return on failure, print on debug
+    # ignore warnings, else print formatted error info
     if err_class == gdal.CE_Warning or err_class == gdal.CE_None:
         pass
-    elif err_class == gdal.CE_Fatal or err_class == gdal.CE_Failure:
-        print '[{} ({})]: {}\n'.format(err_class, err_num, err_msg)
-        return
     else:
-        print err_msg
+        print '[{} ({})]: {}\n'.format(err_class, err_num, err_msg)
 
 
 if __name__ == '__main__':
@@ -65,9 +62,7 @@ if __name__ == '__main__':
 
     for f in files:
         extent = get_extent(f);
-        UL = extent['UL']
-        LR = extent['LR']
-        SRS = extent['SRS']
+        SRS, UL, LR = extent
 
         print 'Extent for {}:'.format(f)
         print '({}) UL={}, LR={}\n'.format(SRS, UL, LR)
