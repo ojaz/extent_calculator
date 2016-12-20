@@ -1,68 +1,47 @@
-'''
-Tool that utilizes python gdal bindings to calculate imagery extents.
-Will output the extent as upper left and lower right coordinates, and the
-SRS code for the image projection.
+import os
+import argparse
 
-Author: ojaz
-Updated: 12/16/16
-
-### Requirements
-    * gdal >= 1.10
-    * python >= 2.7.10
-
-### Usage
-    $ python extent.py [-h] PATH [PATH ...]
-'''
-
-from argparse import ArgumentParser
-from osgeo import gdal, osr
+from handlers.raster_handler import RasterHandler
 
 
-def get_extent(path):
-    gdal.UseExceptions()                  # force gdal exceptions
-    gdal.PushErrorHandler(error_handler)  # use custom gdal error handling
+# list of cached handlers
+handlers = { 'raster': RasterHandler() }
 
-    # open file with gdal
-    try:
-        geos = gdal.Open(path)
-    except RuntimeError:
-        print "File not found {}!".format(path)
-        return
+def get_handler(ext):
+    '''
+    Get a cached handler or create a new one depending on the file type
 
-    # calculate imagery extent
-    ulx, xres, _, uly, _, yres = geos.GetGeoTransform()
-    lrx = ulx + (geos.RasterXSize * xres)
-    lry = uly + (geos.RasterYSize * yres)
-
-    # get imagery projection srs for reference
-    proj = geos.GetProjection()
-    srs = osr.SpatialReference(wkt=proj).GetAttrValue('geogcs')
-
-    return [srs, (ulx, uly), (lrx, lry)]
+    params: ext (str) - file extention
+    return: (object) - handler object for calculating image metadata
+    '''
+    if ext not in handlers:
+        return handlers['raster']
 
 
-def error_handler(err_class, err_num, err_msg):
-    # clean default error messages
-    err_msg = err_msg.replace('\n', ' ')
+def start(files):
+    '''
+    For file names specified, calculate the image extents, and get the SRS codes
 
-    # ignore warnings, else print formatted error info
-    if err_class == gdal.CE_Warning or err_class == gdal.CE_None:
-        pass
-    else:
-        print '[{} ({})]: {}\n'.format(err_class, err_num, err_msg)
+    params: files (list) - filenames to determine metadata for
+    return: (None)
+    '''
+    for f in files:
+        path, ext = os.path.splitext(f)
+        handler = get_handler(ext)
+        extent = handler.get_extent(f);
+
+        if extent:
+            SRS, UL, LR = extent
+            print 'Extent for {}:'.format(f)
+            print '({}) UL={}, LR={}\n'.format(SRS, UL, LR)
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('path', metavar='PATH',
                         type=str, nargs='+',
                         help='List of file paths to calculate extents')
     args = parser.parse_args()
     files = args.path
+    start(files)
 
-    for f in files:
-        extent = get_extent(f);
-        SRS, UL, LR = extent
-
-        print 'Extent for {}:'.format(f)
-        print '({}) UL={}, LR={}\n'.format(SRS, UL, LR)
